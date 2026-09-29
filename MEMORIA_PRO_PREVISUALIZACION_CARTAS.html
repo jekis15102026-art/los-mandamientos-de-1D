@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memoria Pro - Los 10 Mandamientos</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0d1330;color:#fff;min-height:100vh}.wrap{max-width:1100px;margin:auto;padding:24px}.hero{text-align:center;padding:45px 15px}.hero h1{font-size:54px;margin:0 0 10px;color:#ffd166}.hero h2{margin:0 0 20px}.hero p{color:#cbd3ef;font-size:18px;line-height:1.5}.btn{background:#ffd166;color:#221b05;border:0;border-radius:12px;padding:14px 20px;margin:7px;font-weight:bold;cursor:pointer}.btn.secondary{background:#27325f;color:#fff}.levels{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.level{background:#1c254d;border:1px solid #46558f;border-radius:16px;padding:18px;color:#fff;min-height:160px;cursor:pointer}.level:disabled{opacity:.45;cursor:not-allowed}.board{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.card{min-height:125px;border:0;border-radius:14px;background:#f2b94b;color:#1b1732;font-weight:bold;padding:8px;cursor:pointer}.card.open,.card.matched{background:#29366e;color:#fff;border:2px solid #5eead4}.small{font-size:12px;color:#5eead4;display:block;margin-bottom:6px}.hud{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}.hud span{background:#1c254d;padding:10px 12px;border-radius:10px}.panel{max-width:650px;margin:30px auto;background:#1c254d;border:1px solid #46558f;border-radius:18px;padding:25px;text-align:center}.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.msg{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px}.msgbox{max-width:520px;background:#1c254d;border-radius:18px;padding:25px;text-align:center;border:1px solid #6270aa}.choice{display:block;width:100%;margin:8px 0;padding:12px;border:0;border-radius:10px;background:#2d3a73;color:#fff;cursor:pointer}@media(max-width:800px){.levels{grid-template-columns:repeat(2,1fr)}.board{grid-template-columns:repeat(3,1fr)}.hero h1{font-size:38px}}@media(max-width:480px){.board{grid-template-columns:repeat(2,1fr)}}
+
+.editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.editor-card{background:#1c254d;border:1px solid #46558f;border-radius:16px;padding:16px}.editor-card label{display:block;text-align:left;margin:10px 0;color:#cbd3ef;font-size:13px;font-weight:bold}.editor-card input,.editor-card textarea{width:100%;margin-top:6px;padding:10px;border-radius:9px;border:1px solid #59699f;background:#101735;color:#fff}.editor-card textarea{min-height:85px;resize:vertical}.save-status{display:inline-block;margin:8px 0;padding:7px 10px;border-radius:9px;background:#173d38;color:#9ff5e8;font-size:13px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 18px}.file-input{display:none}@media(max-width:800px){.editor-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+var DEFAULT_COMMANDMENTS=[
+{id:1,title:'Amarás a Dios sobre todas las cosas.',situation:'Reservar un momento para Dios y reconocerlo como lo más importante.',explanation:'Poner a Dios en el centro de nuestra vida y confiar en su amor.'},
+{id:2,title:'No tomarás el nombre de Dios en vano.',situation:'Usar el nombre de Dios con respeto y no para burlarse o insultar.',explanation:'El nombre de Dios merece respeto.'},
+{id:3,title:'Santificarás las fiestas.',situation:'Participar en la Misa dominical y compartir el domingo con Dios y la familia.',explanation:'El domingo es tiempo para la fe, el descanso y la familia.'},
+{id:4,title:'Honrarás a tu padre y a tu madre.',situation:'Escuchar y respetar a nuestros padres y valorar sus enseñanzas.',explanation:'Agradecemos a nuestra familia con respeto y responsabilidad.'},
+{id:5,title:'No matarás.',situation:'No agredir, humillar ni hacer daño a otra persona.',explanation:'Protegemos la vida y la dignidad de cada persona.'},
+{id:6,title:'No cometerás actos impuros.',situation:'Respetar nuestro cuerpo y el de los demás.',explanation:'Cuidamos nuestro cuerpo y tratamos a todos con dignidad.'},
+{id:7,title:'No robarás.',situation:'Devolver un objeto encontrado que pertenece a otra persona.',explanation:'Ser honestos significa respetar lo que pertenece a los demás.'},
+{id:8,title:'No darás falso testimonio ni mentirás.',situation:'No inventar ni difundir rumores sobre un compañero.',explanation:'Amar la verdad fortalece la confianza.'},
+{id:9,title:'No consentirás pensamientos ni deseos impuros.',situation:'Mirar y tratar a los demás con respeto y pureza de corazón.',explanation:'Cuidamos nuestros pensamientos y reconocemos la dignidad de todos.'},
+{id:10,title:'No codiciarás los bienes ajenos.',situation:'Valorar lo propio y alegrarse por los logros de los demás.',explanation:'La gratitud nos ayuda a no vivir comparándonos.'}
+];
+var levels=[{id:1,name:'EXPLORADOR',pairs:4},{id:2,name:'DISCÍPULO',pairs:6},{id:3,name:'GUARDIÁN',pairs:8},{id:4,name:'MAESTRO',pairs:10}];
+var STORAGE_KEY='memoriaProProyectoV2';
+var project=loadProject();
+var commandments=project.commandments;
+var unlocked=project.unlocked||1,state=null,saveTimer=null;
+function app(){return document.getElementById('app')}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function loadProject(){try{if(window.__SHARED_PROJECT__&&Array.isArray(window.__SHARED_PROJECT__.commandments)){var sp=clone(window.__SHARED_PROJECT__);sp.unlocked=sp.unlocked||1;sp.best=sp.best||{};return sp}if(location.hash.indexOf('#mp=')===0){var payload=location.hash.slice(4),json=decodeURIComponent(escape(atob(payload))),hp=JSON.parse(json);if(hp&&Array.isArray(hp.commandments)){hp.unlocked=hp.unlocked||1;hp.best=hp.best||{};return hp}}var raw=localStorage.getItem(STORAGE_KEY);if(raw){var x=JSON.parse(raw);if(x&&Array.isArray(x.commandments)){x.unlocked=x.unlocked||1;x.best=x.best||{};return x}}}catch(e){}return {version:3,commandments:clone(DEFAULT_COMMANDMENTS),unlocked:1,best:{},updatedAt:null}}
+function persist(){project.commandments=commandments;project.unlocked=unlocked;project.updatedAt=new Date().toISOString();try{localStorage.setItem(STORAGE_KEY,JSON.stringify(project));setStatus('✓ Guardado automáticamente')}catch(e){setStatus('⚠ No se pudo guardar en Chrome')}}
+function queueSave(){setStatus('Guardando…');clearTimeout(saveTimer);saveTimer=setTimeout(persist,350)}
+function setStatus(t){var e=document.getElementById('saveStatus');if(e)e.textContent=t}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
+function home(){app().innerHTML='<div class="wrap hero"><h1>MEMORIA PRO</h1><h2>Los 10 Mandamientos</h2><p>Encuentra cada Mandamiento y relaciónalo con una situación de la vida cotidiana.</p><button class="btn" onclick="MP.levels()">COMENZAR</button><button class="btn secondary" onclick="MP.how()">¿CÓMO JUGAR?</button><button class="btn secondary" onclick="MP.editor()">✎ MODO DOCENTE</button><p style="font-size:13px">Tus modificaciones y avances se guardan automáticamente en este navegador.</p></div>'}
+function how(){app().innerHTML='<div class="wrap"><div class="panel"><h2>¿CÓMO JUGAR?</h2><p>Al iniciar cada nivel, todas las cartas se mostrarán durante unos segundos para que puedas observarlas y memorizarlas. Luego se ocultarán. Después, haz clic en dos cartas para unir cada Mandamiento con la situación que corresponde.</p><button class="btn" onclick="MP.levels()">ENTENDIDO</button><button class="btn secondary" onclick="MP.home()">INICIO</button></div></div>'}
+function levelMenu(){var h='<div class="wrap"><div class="top"><h1>Elige tu misión</h1><button class="btn secondary" onclick="MP.home()">INICIO</button></div><div class="levels">';for(var i=0;i<levels.length;i++){var l=levels[i],lock=l.id>unlocked;h+='<button class="level" '+(lock?'disabled':'')+' onclick="MP.start('+l.id+')"><h3>NIVEL '+l.id+'</h3><h2>'+l.name+'</h2><p>'+l.pairs+' parejas</p>'+(project.best[l.id]?'<small>Mejor: '+project.best[l.id]+' pts</small>':'')+'</button>'}h+='</div></div>';app().innerHTML=h}
+function start(id){
+  var l=levels[id-1],base=commandments.slice(0,l.pairs),cards=[];
+  for(var i=0;i<base.length;i++){
+    cards.push({id:base[i].id,type:'command',text:base[i].title,explanation:base[i].explanation,open:false,matched:false});
+    cards.push({id:base[i].id,type:'situation',text:base[i].situation,explanation:base[i].explanation,open:false,matched:false})
+  }
+  state={level:l,cards:shuffle(cards),picked:[],matched:0,lives:3,points:0,preview:true,previewSeconds:8,previewTimer:null};
+  render();
+  state.previewTimer=setInterval(function(){
+    if(!state||!state.preview){clearInterval(state.previewTimer);return}
+    state.previewSeconds--;
+    if(state.previewSeconds<=0){
+      clearInterval(state.previewTimer);
+      state.preview=false;
+      render();
+    }else{
+      render();
+    }
+  },1000);
+}
+function skipPreview(){
+  if(!state||!state.preview)return;
+  clearInterval(state.previewTimer);
+  state.preview=false;
+  render();
+}
+function render(){
+  var h='<div class="wrap"><div class="top"><h2>NIVEL '+state.level.id+' · '+state.level.name+'</h2><button class="btn secondary" onclick="MP.levels()">SALIR</button></div>';
+  if(state.preview){
+    h+='<div class="panel" style="margin-bottom:16px"><h3>👀 OBSERVA Y MEMORIZA</h3><p>Todas las cartas están visibles. Identifica qué situación corresponde a cada Mandamiento.</p><p><b>Se ocultarán en '+state.previewSeconds+' segundos.</b></p><button class="btn" onclick="MP.skipPreview()">EMPEZAR AHORA</button></div>';
+  }
+  h+='<div class="hud"><span>⭐ '+state.points+' puntos</span><span>❤️ '+state.lives+' vidas</span><span>🧩 '+state.matched+' / '+state.level.pairs+'</span></div><div class="board">';
+  for(var i=0;i<state.cards.length;i++){
+    var c=state.cards[i],shown=state.preview||c.open||c.matched;
+    h+='<button class="card '+(state.preview?'open preview ':'')+(c.open?'open ':'')+(c.matched?'matched':'')+'" '+(state.preview?'disabled':'')+' onclick="MP.card('+i+')">'+(shown?'<span class="small">'+(c.type==='command'?'MANDAMIENTO '+c.id:'SITUACIÓN')+'</span>'+escapeHtml(c.text):'✦')+'</button>'
+  }
+  h+='</div></div>';
+  app().innerHTML=h;
+}
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function card(i){
+  if(!state||state.preview)return;
+  var c=state.cards[i];
+  if(c.open||c.matched||state.picked.length>=2)return;
+  c.open=true;
+  state.picked.push(i);
+  render();
+  if(state.picked.length===2)setTimeout(check,650)
+}
+function check(){var ia=state.picked[0],ib=state.picked[1],a=state.cards[ia],b=state.cards[ib];if(a.id===b.id&&a.type!==b.type){a.matched=true;b.matched=true;state.matched++;state.points+=100;state.picked=[];render();message('¡PAREJA ENCONTRADA!',a.explanation,function(){if(state.matched===state.level.pairs){unlocked=Math.min(4,Math.max(unlocked,state.level.id+1));project.best[state.level.id]=Math.max(project.best[state.level.id]||0,state.points);persist();message('¡NIVEL SUPERADO!','Has completado todas las parejas.',levelMenu)}})}else{state.lives--;a.open=false;b.open=false;state.picked=[];render();if(state.lives<=0){message('FIN DEL INTENTO','Vuelve a intentarlo. Cada intento fortalece tu memoria.',function(){start(state.level.id)})}else{message('CASI','Observa nuevamente las cartas y vuelve a intentarlo.',function(){})}}}
+function message(title,text,after){var d=document.createElement('div');d.className='msg';d.innerHTML='<div class="msgbox"><h2>'+escapeHtml(title)+'</h2><p>'+escapeHtml(text)+'</p><button class="btn">CONTINUAR</button></div>';d.querySelector('button').onclick=function(){d.parentNode.removeChild(d);after()};document.body.appendChild(d)}
+function editor(){var h='<div class="wrap"><div class="top"><div><h1>Modo docente</h1><span id="saveStatus" class="save-status">✓ Guardado automáticamente</span></div><button class="btn secondary" onclick="MP.home()">← VOLVER</button></div><p>Todo cambio que escribas se guarda automáticamente en este navegador. Para no perderlo al cambiar de computadora, usa <b>EXPORTAR COPIA</b>.</p><div class="toolbar"><button class="btn" onclick="MP.saveNow()">GUARDAR AHORA</button><button class="btn secondary" onclick="MP.generateLink()">🔗 GENERAR NUEVO LINK</button><button class="btn secondary" onclick="MP.exportProject()">⬇ EXPORTAR COPIA</button><button class="btn secondary" onclick="document.getElementById(\'importFile\').click()">⬆ IMPORTAR COPIA</button><button class="btn secondary" onclick="MP.resetProject()">RESTABLECER ORIGINAL</button><input id="importFile" class="file-input" type="file" accept="application/json,.json" onchange="MP.importProject(this.files[0])"></div><div class="editor-grid">';
+for(var i=0;i<commandments.length;i++){var c=commandments[i];h+='<div class="editor-card"><h3>'+c.id+'.º Mandamiento</h3><label>Mandamiento<input data-i="'+i+'" data-field="title" value="'+escapeHtml(c.title)+'" oninput="MP.edit(this)"></label><label>Situación<textarea data-i="'+i+'" data-field="situation" oninput="MP.edit(this)">'+escapeHtml(c.situation)+'</textarea></label><label>Explicación<textarea data-i="'+i+'" data-field="explanation" oninput="MP.edit(this)">'+escapeHtml(c.explanation)+'</textarea></label></div>'}
+h+='</div><div class="toolbar"><button class="btn" onclick="MP.saveNow()">GUARDAR AHORA</button><button class="btn secondary" onclick="MP.home()">VOLVER AL JUEGO</button></div></div>';app().innerHTML=h}
+function edit(el){var i=Number(el.getAttribute('data-i')),f=el.getAttribute('data-field');commandments[i][f]=el.value;queueSave()}
+function saveNow(){clearTimeout(saveTimer);persist();message('CAMBIOS GUARDADOS','Tus modificaciones y el progreso quedaron guardados en este navegador.',function(){})}
+function playGeneratedVersion(){
+  state=null;
+  var overlays=document.querySelectorAll('.msg');
+  for(var i=0;i<overlays.length;i++){overlays[i].remove()}
+  home();
+}
+
+function safeB64(text){return btoa(unescape(encodeURIComponent(text)))}
+function copyText(text){
+  if(navigator.clipboard&&window.isSecureContext){return navigator.clipboard.writeText(text)}
+  return new Promise(function(resolve,reject){try{var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();var ok=document.execCommand('copy');ta.remove();ok?resolve():reject(new Error('copy'))}catch(e){reject(e)}})
+}
+function standaloneHtml(){
+  var source='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  var payload=JSON.stringify(project).replace(/</g,'\\u003c');
+  source=source.replace('<script>','<script>window.__SHARED_PROJECT__='+payload+';<\\/script><script>');
+  return source;
+}
+function downloadHtmlCopy(html){
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  var stamp=new Date().toISOString().replace(/[:.]/g,'-');
+  a.href=url;a.download='MEMORIA_PRO_VERSION_'+stamp+'.html';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},1200)
+}
+function linkDialog(link,kind){
+  var d=document.createElement('div');d.className='msg';
+  d.innerHTML='<div class="msgbox"><h2>🔗 VERSIÓN GENERADA</h2><p>'+escapeHtml(kind)+'</p><textarea id="generatedLink" style="width:100%;min-height:100px;padding:10px;border-radius:10px;background:#101735;color:white;border:1px solid #59699f">'+escapeHtml(link||'')+'</textarea><p style="font-size:12px;color:#cbd3ef">La versión conserva tus modificaciones. Puedes volver al inicio y jugar inmediatamente.</p><button class="btn" id="playGenerated">▶ JUGAR ESTA VERSIÓN</button>'+(link?'<button class="btn secondary" id="copyGenerated">COPIAR LINK</button>':'')+'<button class="btn secondary" id="closeGenerated">SEGUIR EDITANDO</button></div>';
+  document.body.appendChild(d);
+  var play=d.querySelector('#playGenerated');
+  play.onclick=function(){d.remove();playGeneratedVersion()};
+  var copy=d.querySelector('#copyGenerated');
+  if(copy)copy.onclick=function(){copyText(link).then(function(){copy.textContent='✓ LINK COPIADO'}).catch(function(){var t=d.querySelector('#generatedLink');t.focus();t.select()})};
+  d.querySelector('#closeGenerated').onclick=function(){d.remove()}
+}
+function generateLink(){
+  clearTimeout(saveTimer);persist();
+  var data=JSON.stringify(project),link='',kind='';
+  if(location.protocol==='http:'||location.protocol==='https:'){
+    var base=location.href.split('#')[0];
+    link=base+'#mp='+safeB64(data);
+    kind='En una página publicada, este enlace abre directamente esta versión editada y permite comenzar a jugar desde el inicio.';
+    copyText(link).catch(function(){});
+    linkDialog(link,kind);
+  }else{
+    var html=standaloneHtml();
+    downloadHtmlCopy(html);
+    kind='Estás usando el juego como archivo local. Chrome no permite crear desde aquí un enlace web público permanente. Por eso se descargó una NUEVA COPIA HTML jugable con todos tus cambios. Pulsa JUGAR ESTA VERSIÓN para probarla ahora.';
+    linkDialog('',kind);
+  }
+}
+
+function exportProject(){persist();var data=JSON.stringify(project,null,2),blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='memoria-pro-copia-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},1000)}
+function importProject(file){if(!file)return;var r=new FileReader();r.onload=function(){try{var x=JSON.parse(r.result);if(!x||!Array.isArray(x.commandments)||x.commandments.length!==10)throw new Error();project=x;project.version=2;project.best=project.best||{};project.unlocked=project.unlocked||1;commandments=project.commandments;unlocked=project.unlocked;persist();message('COPIA IMPORTADA','Tus cartas y avances fueron recuperados correctamente.',editor)}catch(e){message('ARCHIVO NO VÁLIDO','Selecciona una copia exportada desde Memoria Pro.',function(){})}};r.readAsText(file)}
+function resetProject(){if(!confirm('¿Seguro que quieres borrar tus modificaciones y volver al contenido original?'))return;project={version:2,commandments:clone(DEFAULT_COMMANDMENTS),unlocked:1,best:{},updatedAt:null};commandments=project.commandments;unlocked=1;persist();editor()}
+window.MP={home:home,how:how,levels:levelMenu,start:start,skipPreview:skipPreview,card:card,editor:editor,edit:edit,saveNow:saveNow,generateLink:generateLink,playGeneratedVersion:playGeneratedVersion,exportProject:exportProject,importProject:importProject,resetProject:resetProject};home();
+})();
+</script>
+</body>
+</html>
